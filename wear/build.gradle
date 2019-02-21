@@ -5,13 +5,14 @@ apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
 android {
-    compileSdkVersion 27
+    compileSdkVersion 26
     defaultConfig {
         applicationId "abc.akshay.com.aqua"
         minSdkVersion 23
-        targetSdkVersion 27
+        targetSdkVersion 26
         versionCode 1
         versionName "1.0"
+        multiDexEnabled true
     }
     buildTypes {
         release {
@@ -27,11 +28,12 @@ dependencies {
     implementation 'com.google.android.support:wearable:2.3.0'
     implementation 'com.google.android.gms:play-services-wearable:15.0.1'
     implementation 'com.android.support:percent:27.1.1'
-    implementation 'com.android.support:support-v4:27.1.1'
+    implementation 'com.android.support:support-v13:27.1.1'
     implementation 'com.android.support:recyclerview-v7:27.1.1'
     implementation 'com.android.support:wear:27.1.1'
     implementation 'com.android.support:appcompat-v7:27.1.1'
+    compile 'com.android.support:design:27.1.0'
     implementation 'com.android.support.constraint:constraint-layout:1.1.0'
     compileOnly 'com.google.android.wearable:wearable:2.3.0'
-    implementation "com.android.support:support-v13:27.1.1"
+    implementation 'com.android.support:multidex:1.0.3'
 }

@@ -6,12 +6,17 @@ import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.BitmapFactory;
 import android.os.Vibrator;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.NotificationManagerCompat;
+import android.support.v4.content.ContextCompat;
 import android.util.Log;
 
 
+import java.util.Date;
+
+import static android.app.Notification.VISIBILITY_PUBLIC;
 import static android.content.Context.VIBRATOR_SERVICE;
 
 
@@ -21,7 +26,14 @@ import static android.content.Context.VIBRATOR_SERVICE;
 public class ScheduleAlarmReceiver extends BroadcastReceiver {
 
 
-    private Context mContext;
+    private NotificationManagerCompat mNotificationManagerCompat;
+    public static final int NOTIFICATION_ID = 888;
+
+    public ScheduleAlarmReceiver() {
+        super();
+        mNotificationManagerCompat = NotificationManagerCompat.from(Aqua.getAppContext());
+
+    }
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -33,100 +45,119 @@ public class ScheduleAlarmReceiver extends BroadcastReceiver {
         final int indexInPatternToRepeat = -1;
         vibrator.vibrate(vibrationPattern, indexInPatternToRepeat);
 
+        Date date = new Date();
 
-        Intent displayIntent = new Intent(context, Main2Activity.class);
+        Date startTime = Utils.atStartTime(date);
+        Date endtime = Utils.atEndTime(date);
 
-        Notification notification = new Notification.Builder(context)
-                .setSmallIcon(R.drawable.ic_drink_name)
-                .setContentTitle("Drink water")
-                .extend(new Notification.WearableExtender()
-                        .setDisplayIntent(PendingIntent.getActivity(context, 0, displayIntent,
-                                PendingIntent.FLAG_UPDATE_CURRENT)))
-                .build();
-
-        ((NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE))
-                .notify(0, notification);
-
-        showNotification1(context);
+        if (date.after(startTime) && date.before(endtime)) {
+            showTextNotification(context);
+        }
     }
 
-    private void showNotification1(Context context) {
+
+    private void showTextNotification(Context context) {
+
+        //Creating notification channel is important above android 7
+        String notificationChannelId = Utils.createNotificationChannel(context);
+
+        NotificationCompat.BigTextStyle bigTextStyle = new NotificationCompat.BigTextStyle()
+                // Overrides ContentText in the big form of the template.
+                .bigText("Drink water")
+                // Overrides ContentTitle in the big form of the template.
+                .setBigContentTitle("Drink water")
+                // Summary line after the detail section in the big form of the template.
+                // Note: To improve readability, don't overload the user with info. If Summary Text
+                // doesn't add critical information, you should skip it.
+                .setSummaryText("Drink water");
 
 
-        int notificationID = 0;
-        Intent callPhoneIntent = new Intent(context, Main2Activity.class);
+        Intent notifyIntent = new Intent(context, Main2Activity.class);
 
-        PendingIntent callPhonePendingIntent = PendingIntent.getActivity(context, 0,
-                callPhoneIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        notifyIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 
-        NotificationCompat.Action callPhoneAction =
-                new NotificationCompat.Action.Builder(R.mipmap.ic_launcher, "Call Phone",
-                        callPhonePendingIntent)
+        PendingIntent notifyPendingIntent =
+                PendingIntent.getActivity(
+                        context,
+                        0,
+                        notifyIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT
+                );
+
+        Intent snoozeIntent = new Intent(context, BigTextIntentService.class);
+        snoozeIntent.setAction(BigTextIntentService.ACTION_SNOOZE);
+
+        PendingIntent snoozePendingIntent = PendingIntent.getService(context, 0, snoozeIntent, 0);
+        NotificationCompat.Action snoozeAction =
+                new NotificationCompat.Action.Builder(
+                        R.drawable.ic_drink_name,
+                        "Snooze",
+                        snoozePendingIntent)
                         .build();
 
-        NotificationCompat.Builder builder =
-                new NotificationCompat.Builder(context)
-                        .setSmallIcon(R.mipmap.ic_launcher)
-                        .setContentTitle("Notification")
-                        .setContentText("Call Phone")
-                        .addAction(callPhoneAction);
 
-        NotificationManager notificationManager =
-                (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        notificationManager.notify(notificationID, builder.build());
+        // Dismiss Action.
+        Intent dismissIntent = new Intent(context, BigTextIntentService.class);
+        dismissIntent.setAction(BigTextIntentService.ACTION_DISMISS);
+
+        PendingIntent dismissPendingIntent = PendingIntent.getService(context, 0, dismissIntent, 0);
+        NotificationCompat.Action dismissAction =
+                new NotificationCompat.Action.Builder(
+                        R.drawable.ic_drink_name,
+                        "Dismiss",
+                        dismissPendingIntent)
+                        .build();
+
+
+        NotificationCompat.Builder notificationCompatBuilder =
+                new NotificationCompat.Builder(
+                        Aqua.getAppContext(), notificationChannelId);
+
+
+        GlobalNotificationBuilder.setNotificationCompatBuilderInstance(notificationCompatBuilder);
+
+        Notification notification = notificationCompatBuilder
+                // BIG_TEXT_STYLE sets title and content for API 16 (4.1 and after).
+                .setStyle(bigTextStyle)
+                // Title for API <16 (4.0 and below) devices.
+                .setContentTitle("Drink water")
+                // Content for API <24 (7.0 and below) devices.
+                .setContentText("Drink water")
+                .setSmallIcon(R.drawable.ic_drink_name)
+                .setLargeIcon(BitmapFactory.decodeResource(
+                        context.getResources(),
+                        R.drawable.ic_drink_name))
+                .setContentIntent(notifyPendingIntent)
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
+                // Set primary color (important for Wear 2.0 Notifications).
+                .setColor(ContextCompat.getColor(Aqua.getAppContext(), R.color.dark_red))
+
+                // SIDE NOTE: Auto-bundling is enabled for 4 or more notifications on API 24+ (N+)
+                // devices and all Wear devices. If you have more than one notification and
+                // you prefer a different summary notification, set a group key and create a
+                // summary notification via
+                // .setGroupSummary(true)
+                // .setGroup(GROUP_KEY_YOUR_NAME_HERE)
+
+                .setCategory(Notification.CATEGORY_REMINDER)
+
+                // Sets priority for 25 and below. For 26 and above, 'priority' is deprecated for
+                // 'importance' which is set in the NotificationChannel. The integers representing
+                // 'priority' are different from 'importance', so make sure you don't mix them.
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+
+                // Sets lock-screen visibility for 25 and below. For 26 and above, lock screen
+                // visibility is set in the NotificationChannel.
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .addAction(snoozeAction)
+                .addAction(dismissAction)
+                // Adds additional actions specified above.
+
+                .build();
+
+        mNotificationManagerCompat.notify(NOTIFICATION_ID, notification);
 
 
     }
 
-    private void showNotification(Context context) {
-        int notificationId = 001;
-// The channel ID of the notification.
-        String id = "my_channel_01";
-// Build intent for notification content
-        Intent viewIntent = new Intent(context, Main2Activity.class);
-//        viewIntent.putExtra("eventID", 23);
-        PendingIntent viewPendingIntent =
-                PendingIntent.getActivity(context, 0, viewIntent, 0);
-
-// Notification channel ID is ignored for Android 7.1.1
-// (API level 25) and lower.
-        NotificationCompat.Builder notificationBuilder =
-                new NotificationCompat.Builder(context, id)
-                        .setSmallIcon(R.drawable.ic_drink_name)
-                        .setContentTitle("Drink water")
-                        .setContentText("Drink water")
-                        .setContentIntent(viewPendingIntent);
-
-
-        // Get an instance of the NotificationManager service
-        NotificationManagerCompat notificationManager =
-                NotificationManagerCompat.from(context);
-
-// Issue the notification with notification manager.
-        notificationManager.notify(notificationId, notificationBuilder.build());
-
-
-
-
-//        NotificationCompat.WearableExtender wearableExtender =
-//                new NotificationCompat.WearableExtender()
-//                        .setHintShowBackgroundOnly(true);
-//
-//        Notification notification =
-//                new NotificationCompat.Builder(context)
-//                        .setSmallIcon(R.drawable.ic_drink_name)
-//                        .setContentTitle("Drink water")
-//                        .setContentText("Drink water")
-//                        .extend(wearableExtender)
-//                        .build();
-//
-//        NotificationManagerCompat notificationManager =
-//                NotificationManagerCompat.from(context);
-//
-//        int notificationId = 1;
-//
-//        notificationManager.notify(notificationId, notification);
-
-
-    }
 }
